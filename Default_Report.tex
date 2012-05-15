@@ -118,7 +118,6 @@ expertise.
 % labels, and the second pass to put in the right references.
 \tableofcontents
 \listoffigures
-\listoftables
 
 \section{Summary}
 
@@ -328,7 +327,11 @@ In the case of displaying cells, the parent class (CustomViewCell) looks through
 and calls the canDisplayData method to query them about the data that it has been presented with.
 This is shown in the figure below.
 
-(insert figure here)
+\begin{figure}[h!]
+  \caption{Illustration of the Dispatcher Design Pattern}
+  \centering
+    \includegraphics[width=0.5\textwidth]{customViewCellFlowchart}
+\end{figure}
 
 In this way, all that is necessary to fully define and display a list view is a list of the data
 that should be displayed in the list. By dispatching to CustomViewCell, the particularities of
@@ -348,7 +351,11 @@ the behaviour of particular pages is vastly. One class in particular (OrderCombo
 has 4 lines of code in its header file and 23 lines of code in its implimentation. A screenshot
 of this particular page is shown below. 
 
-(figure)
+\begin{figure}[h!]
+  \caption{Screenshot of the Order Combo Page}
+  \centering
+    \includegraphics[width=0.5\textwidth]{orderComboPage}
+\end{figure}
 
 The UITableViewDataSource for this page is simplified in a similar way. The class responsible
 for the page contents (OrderComboRenderer) has 7 lines in its header file, and 37 in its implimentation.
@@ -400,7 +407,23 @@ it is optimized enough that it feels smooth to interact with, and its code is ve
 The app can currently be downloaded from the app store, and is called "Pita Factory". As
 not everyone has an iOS device, below are some screenshots of the finished product.
 
-(Screenshots here)
+\begin{figure}[h!]
+  \caption{Screenshot of the Order/Menu Page}
+  \centering
+    \includegraphics[width=0.5\textwidth]{orderMenuPage}
+\end{figure}
+
+\begin{figure}[h!]
+  \caption{Screenshot of the Credit Card Page}
+  \centering
+    \includegraphics[width=0.5\textwidth]{creditCardPage}
+\end{figure}
+
+\begin{figure}[h!]
+  \caption{Screenshot of the Location Page}
+  \centering
+    \includegraphics[width=0.5\textwidth]{locationPage}
+\end{figure}
 
 \appendix
 
