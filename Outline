@@ -1,0 +1,25 @@
+Elements of code Design
+
+1.  Intro (The Problem)
+    description of the problem (i.e. make an interface for the iphone that allows people to order from a restaurant that's extensible)
+    explain that objective-c is the language in use. Give a brief description of the notable language features and facets.
+
+2. Coding practices
+    stuff
+
+3. Challenges
+    Intro to the challenge section
+    In general, what should testing look like?
+    What dev tools can we build to make general development faster?
+    What tools would be ideal for the view contstruction and delegation?
+    How do we make server updates not break old apps?
+    How do we make sure that new iOS code wont break the cached data?
+
+5. Conclusion
+    Show the final product
+    Discuss whether all of the problems were solved
+
+Appendix A
+    Apple API abbreviated description
+
+fin.

@@ -1,0 +1,50 @@
+%%
+%% This is file `uw-wkrpt.drv',
+%% generated with the docstrip utility.
+%%
+%% The original source files were:
+%%
+%% uw-wkrpt.dtx  (with options: `driver')
+%% 
+%% Copyright (C) 2002, 2003  Simon Law
+%% 
+%%   This program is free software; you can redistribute it and/or modify
+%%   it under the terms of the GNU General Public License as published by
+%%   the Free Software Foundation; either version 2 of the License, or
+%%   (at your option) any later version.
+%% 
+%%   This program is distributed in the hope that it will be useful,
+%%   but WITHOUT ANY WARRANTY; without even the implied warranty of
+%%   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+%%   GNU General Public License for more details.
+%% 
+%%   You should have received a copy of the GNU General Public License
+%%   along with this program; if not, write to the Free Software
+%%   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307  USA
+%% 
+\NeedsTeXFormat{LaTeX2e}[1995/12/01]
+\documentclass[letterpaper]{ltxdoc}
+\usepackage{calc}
+\usepackage{url} \urlstyle{sf}
+\usepackage{textcomp}
+\usepackage{fancyvrb}
+\usepackage{multicol}
+\newlength{\ExampleWidth}
+\setlength{\ExampleWidth}{3.5cm}
+\fvset{gobble=6,numbersep=3pt,frame=single,
+       numbers=left,xleftmargin=5mm,xrightmargin=0pt}
+\fvset{xrightmargin=\ExampleWidth}
+\EnableCrossrefs
+ %\DisableCrossrefs     % Say \DisableCrossrefs if index is ready
+\CodelineIndex
+\RecordChanges          % Gather update information
+ %\OnlyDescription      % comment out for implementation details
+ \OldMakeindex           % use if your MakeIndex is pre-v2.9
+ %\setlength\hfuzz{15pt}  % don't make so many
+ %\hbadness=7000          % over and under full box warnings
+\begin{document}
+  \DocInput{uw-wkrpt.dtx}
+\end{document}
+\endinput
+%%
+%% End of file `uw-wkrpt.drv'.
