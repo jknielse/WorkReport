@@ -34,16 +34,16 @@
 
 %% First we, should create a title page.  This is done below:
 % Fill in the title of your report.
-\title{Development of an iOS Application}
+\title{Design of an Interprocess Communcation Library}
 
 % Fill in your employer's name.
-\employer{Crouton Labs Incorperated}
+\employer{Virtium Incorporated}
 
 % Fill in your employer's city and province.
-\employeraddress{Kitchener, ON}
+\employeraddress{Rancho Santa Margarita, CA}
 
 % Fill in your term.
-\term{2B}
+\term{3B}
 
 % If you want to specify the date, fill it in here.  If you comment out
 % this line, today's date will be substituted.
@@ -91,21 +91,22 @@
 
 % After this, we must create a letter of submission.
 \begin{letter}
-I have just completed my fourth work term, following my \theterm{} term.
+I have just completed my fifth work term, following my \theterm{} term.
 Please find enclosed my first work term report entitled:
 ``\thetitle'' at \theemployer.  
 
-I am one of the co-founders of Crouton Labs Inc. We make smartphone
-apps for restaurants in the Kitchener/Waterloo area. In particular, this
-report discusses the development choices that I made as the iOS developer
-on our development team while designing and programming the app that we
-made for Pita Factory.
+Virtium Inc. is a company that specializes in the assembly and programming of
+NAND flash solid state drives. As one of the software engineers on the 
+firmware team at Virtium Inc. I was mainly responsible for the simulation 
+system used to test firmware code as it was developed, but without having 
+to fatigue a physical SSD.
 
-I have had no direct assistance from anyone.  I do wish to thank Christophe
-Biocca for his invaluable support in learning and working with the objective-c
-language. I can say without a doubt that my knowledge of the language, its features,
-and coding practices would not be half of what they are today if not for Christophe's
-expertise.
+In the writing of this report, I have had no direct assistance from anyone. 
+I do wish to thank Ho-Fan Kang, Trevor Chau, Lan Phan, and my excellent fellow
+interns at Virtium for their exceptional support and assistance as we learned
+about producing highly performant code in C++. To date, this has been the best
+experience that I have had on a co-op term, due in large part to the excellent
+people that I was working with.
 
 % Note that I do not need to type out the boilerplate confirmation,
 % nor do I need to write a signature block.  This is generated for me.
@@ -121,18 +122,15 @@ expertise.
 
 \section{Summary}
 
+The purpose of this report is to examine one of the design choices that I
+had to make during this term. The simulation system that was used in place
+of a real SSD was a separate process from the testing framework that was
+used to interact with the drive. As such, an interprocess communication
+library needed to be made to facilitate the interaction between the two processes.
+Due to the volume and complexity of the tests, it was essential that this
+library provide as high throughput as possible. This is the challenge that will
+be examined throughout this report.
 
-The purpose of this report is to explain the highlights of the software development
-project that I was involved with at Crouton Labs Inc. The project itself was meant
-to solve the problem of long line-ups at restaurants, and efficiency of fast food
-procuction lines. The report explains the coding
-practices that were used during the development process, the challenges that were faced
-during development, and the solutions that were implimented to solve those problems.
-This report emphasises the importance of using proper design patterns and coding practices
-by demonstrating the amount of time saved and the quality that can be achieved by 
-adhering to these practices. The final product is one that solves the problem it was
-intended to solve, is stable, looks good,
-is optimized enough that it feels smooth to interact with, and has very readable code.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -145,96 +143,54 @@ is optimized enough that it feels smooth to interact with, and has very readable
 % You must have an Introduction
 \section{Introduction}\label{sec:intro}
 
-The purpose of this report is to convey the challenges that were faced
-during the development of the iOS application that Crouton Labs Inc. 
-provides to Pita Factory.
 
-In order to undestand the motivation for writing this app in the first
-place, it's important to understand what problem this app is intended
-to solve. This app is an attempt to reduce the time spent in fast food restaurants
-waiting in line and processing transactions. This should allow for the restaurant
-to service more customers and thus increase profits. With this in mind,
-this main goals of this app are to allow a user to browse the restaurant's
-menu, construct an order that they would like to purchase, and to provide
-a means of processing the transaction through the app.
+The problem of interprocess communication is not uncommon, and there
+are several ways to implement it. The different implementations have
+trade-offs, but they're all useful under the correct circumstances.
 
-The programming language that was used to accomplish this goal is called
-objective-c. Objective-c is syntactically similar to c and smalltalk. Its strange
-syntactic combination can be confusing at first, as there are often two
-syntactically different ways of achieving exactly the same effect. Objective-c
-at first glance does not appear to be much different from c++ in terms
-of language features, but upon further inspection it can be seen that 
-objective-c is perhaps better compared to a dynamic language. While objective-c
-does not fit the true definition of a dynamic language, it has many 
-language features that are often associated with dynamic languages. 
-Object and class methods can be called by progamatic string construction
-of the name of the method, which is refered to as a "selector".
-Similarly, subclasses can be refered to via programatic strings. With some work,
-classes can even request the names of their subclasses, allowing for
-some very powerful programming techniques that will be discussed later in
-this report.
+In order to understand which is the most ideal, the use-case and programming
+environment needs to be examined first. In this case, both communicating
+processes are written in C++, and both processes are running on the same
+machine. Further, the host machine is running post-2007 Windows, although
+we don't have any assurances about which release of Windows.
 
-This report will discuss the general coding practices that were adhered to
-during development, the challenges faced during development, and the solutions
-that were implimented to deal with the challenges that arose.
+The requirements for this library are as follows: The two processes need to be able to send serialized data in both directions,
+and the data streams can be anywhere from several bytes, to several gigabytes
+at a time. The data is assured to be byte-aligned, but there are no assurances
+about how many bytes will be transfered at a time. One process is assured to be initialized before the other communicating process begins.
+The second process may be created and destroyed multiple times, and in that event,
+the second process needs to be able to "pick up where it left off". Although
+there are no hard constraints on throughput, the library must be as high throughput as possible.
 
-The actual interface flow is not within the scope of this report.
-The user interface was designed by a 3rd party designer and was merely
-implimented and occaisionally exteneded upon by Crouton Labs.
+With these constraints in mind, three common methods of interprocess communication
+will be examined and evaluated to determine their viability for this application.
 
-\section{Coding Practices}
+\section{Common Interprocess Communication Techniques}
 
-\subsection{Motivation}
+\subsection{Message Passing}
 
-The coding practices that were maintained 
-during the development process are an extremely
-important factor that affected the final product of this development
-process. Proper coding 
-practices are often dismissed or overlooked by many programmers to
-the detriment of their productivity and positive outlook. Adhering to 
-good practices make the painful parts of software development much less
-frequent and much more bearable.
+\subsubsection{Overview}
 
-\subsection{Version Control}
+Message passing is 
 
-Using version control is the single, most important practice any
-good programmer should have. While the choice of version control 
-software is hotly debated, I am partial to git. Git is a very
-powerful source control system and is also very widely used.
-Part of good source control use is having a remote repository.
-For this project, www.github.com was used as our remote repository.
+\subsubsection{Benefits}
+\subsubsection{Costs}
 
-All version control software has the concept of small, incrimental
-changes that, when put together, move the development of the code-base
-forward. In git, these are refered to as commits. It's good practice
-to make very small, bite-sized commits. In escence, each commit should
-fix one bug, impliment one feature, or add one more logical piece to
-the codebase. In this way, if certain features aren't working, or simply
-aren't finished, they can be excluded from release builds without any
-painful merge conflicts.
+\subsection{Named Pipes}
 
-If a feature is not trivial to impliment, the feature should be
-made on a separate "branch" soas to maintain the small size of commits
-while still making sure that it is known that the group of commits are 
-associated (and likely dependant on) one another. In this way, if a feature
-needs to be included or discluded, this can be done simply by including, or 
-discluding the entire branch.
+\subsubsection{Overview}
+\subsubsection{Benefits}
+\subsubsection{Costs}
 
-\subsection{Efficientcy vs Simplicity}
+\subsection{Mapped Memory}
 
-This is another widely overlooked and undervalued concept that 
-helps immensely during the development process. Many programmers
-sacrifice simplicity in favor of efficiency much more often than
-they should. While it's important under certain circumstances to
-have efficient code, it can be hard to know where optimization would
-do the most good, or even if it is necessary. Optimization should
-only happen if it becomes a problem. Overly optimized code is indistinguishable
-from properly optimized code at runtime, but at development time, 
-overly optimized code is much less readable, and will cause pain
-for any contributors, or even for the person who did the optimization
-in the first place. Hence, optimize only when necessary.
+\subsubsection{Overview}
+\subsubsection{Benefits}
+\subsubsection{Costs}
 
-\subsection{Refactoring}
+
+\section{Conclusions}
+\section{Recommendations}
 
 It seems obvious, but refactoring is esscencial to maintaining a usable and agile
 codebase. To emphasize the importance that needs to be put into refactoring, the 
