@@ -1,26 +1,24 @@
 \contentsline {section}{List of Figures}{iv}
 \contentsline {section}{Summary}{v}
 \contentsline {section}{\numberline {1} \phantom {}Introduction}{1}
-\contentsline {section}{\numberline {2} \phantom {}Coding Practices}{2}
-\contentsline {subsection}{\numberline {2.1} \phantom {}Motivation}{2}
-\contentsline {subsection}{\numberline {2.2} \phantom {}Version Control}{2}
-\contentsline {subsection}{\numberline {2.3} \phantom {}Efficientcy vs Simplicity}{3}
-\contentsline {subsection}{\numberline {2.4} \phantom {}Refactoring}{3}
-\contentsline {subsection}{\numberline {2.5} \phantom {}Design Patterns}{3}
-\contentsline {section}{\numberline {3} \phantom {}Challenges and Solutions}{4}
-\contentsline {subsection}{\numberline {3.1} \phantom {}Section Structure}{4}
-\contentsline {subsection}{\numberline {3.2} \phantom {}Code Testing}{4}
-\contentsline {subsection}{\numberline {3.3} \phantom {}Object Serialization}{5}
-\contentsline {subsection}{\numberline {3.4} \phantom {}User Interface Tools}{5}
-\contentsline {subsection}{\numberline {3.5} \phantom {}Client Version Management}{7}
-\contentsline {subsubsection}{\numberline {3.5.1} \phantom {}Server Communication}{7}
-\contentsline {subsubsection}{\numberline {3.5.2} \phantom {}Client Data Caching}{8}
-\contentsline {section}{\numberline {4} \phantom {}Conclusion}{9}
-\contentsline {section}{\numberline {A} \phantom {}Apple API Abbreviated}{11}
-\contentsline {subsection}{\numberline {A.1} \phantom {}UIViews}{11}
-\contentsline {subsubsection}{\numberline {A.1.1} \phantom {}UITableView}{11}
-\contentsline {subsubsection}{\numberline {A.1.2} \phantom {}UIViewCell}{11}
-\contentsline {subsection}{\numberline {A.2} \phantom {}UIViewControllers}{12}
-\contentsline {subsubsection}{\numberline {A.2.1} \phantom {}UITableViewDelegate}{12}
-\contentsline {subsection}{\numberline {A.3} \phantom {}UIDataSources}{12}
-\contentsline {subsubsection}{\numberline {A.3.1} \phantom {}UITableViewDataSource}{12}
+\contentsline {section}{\numberline {2} \phantom {}Common Interprocess Communication Techniques}{2}
+\contentsline {subsection}{\numberline {2.1} \phantom {}Message Passing}{2}
+\contentsline {subsubsection}{\numberline {2.1.1} \phantom {}Overview}{2}
+\contentsline {subsubsection}{\numberline {2.1.2} \phantom {}Benefits}{2}
+\contentsline {subsubsection}{\numberline {2.1.3} \phantom {}Costs}{2}
+\contentsline {subsection}{\numberline {2.2} \phantom {}Named Pipes}{3}
+\contentsline {subsubsection}{\numberline {2.2.1} \phantom {}Overview}{3}
+\contentsline {subsubsection}{\numberline {2.2.2} \phantom {}Benefits}{3}
+\contentsline {subsubsection}{\numberline {2.2.3} \phantom {}Costs}{3}
+\contentsline {subsection}{\numberline {2.3} \phantom {}Mapped Memory}{3}
+\contentsline {subsubsection}{\numberline {2.3.1} \phantom {}Overview}{3}
+\contentsline {subsubsection}{\numberline {2.3.2} \phantom {}Benefits}{4}
+\contentsline {subsubsection}{\numberline {2.3.3} \phantom {}Costs}{4}
+\contentsline {section}{\numberline {3} \phantom {}Implemenation Details}{5}
+\contentsline {subsection}{\numberline {3.1} \phantom {}Overview}{5}
+\contentsline {subsection}{\numberline {3.2} \phantom {}General Design}{5}
+\contentsline {subsection}{\numberline {3.3} \phantom {}Data Integrity}{5}
+\contentsline {subsection}{\numberline {3.4} \phantom {}Synchronization}{6}
+\contentsline {subsection}{\numberline {3.5} \phantom {}Deadlocking}{7}
+\contentsline {section}{\numberline {4} \phantom {}Conclusions}{8}
+\contentsline {section}{\numberline {5} \phantom {}Recommendations}{9}

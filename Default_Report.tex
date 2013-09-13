@@ -171,300 +171,171 @@ will be examined and evaluated to determine their viability for this application
 
 \subsubsection{Overview}
 
-Message passing is 
+Message passing is one of the most common and simple ways of implementing
+interprocess communication. Message passing is a service provided by the operating
+system that allows you to send and recieve messages between processes. In most
+implementations (such as boost::interprocess::message\_queue) all that's required
+to connect two processes is for both of them to create a message\_queue object with
+the same key. After the object is created, messages can be inserted or extracted from
+the message queue, thereby providing a way for the two processes to communicate.
 
 \subsubsection{Benefits}
+
+Message passing is one of the easiest ways of implementing interprocess communication.
+It requires no explicit process synchronization (that's all handled by the library). It's
+flexable because the "messages" can be text, or full-fledged objects. Message passing
+can be a form of communication between more than just two processes (many speakers, many listeners). Message passing is
+cross-platform with the right libraries (like boost).
+
 \subsubsection{Costs}
+
+Message passing tends to have very low bandwith. Its intended purpose is not to transfer
+a lot of data, it's to signal other processes to start/stop tasks, request the status
+of processes, notify processes of events occuring, and the like.
 
 \subsection{Named Pipes}
 
 \subsubsection{Overview}
+
+Named pipes is a fairly bandwidth-performant choice for interprocess communication, and
+is easier to use than memory mapping. When using named pipes, the communicating processes 
+need to "open" a pipe, and agree on the name of the pipe. For example, using the windows API
+one process could create a pipe using the CreateNamedPipe function (which returns a handle to the pipe),
+amd the connecting process could connect to the pipe by using the CreateFile function (which also returns a handle to the
+pipe). Depending on the initialization parameters given to CreateNamedPipe, the pipe may
+be one-way, or it may be bi-directional. The two processes can then send or recieve data byte-by-byte
+with their pipe handle.
+
 \subsubsection{Benefits}
+
+Named pipes are reasonably fast. From the tests that I performed during the term, you can 
+expect transfer speeds in the range of 200 MB/s using named pipes. Named pipes still abstract
+synchronization issues from the user, and lend themselves towards raw data transfer between
+processes. Named pipes are avalable in any operating system.
+
 \subsubsection{Costs}
+
+Although they are available in any operating system, the implementation varies, so for true
+cross-platform use, a wrapper library would be required. Named pipes are harder to use
+than message passing. Some glue-code is required to send objects down a named pipe.
 
 \subsection{Mapped Memory}
 
 \subsubsection{Overview}
+
+Mapped memory is a method of interprocess communication that *nearly allows both processes to access
+the same memory simultaniously. The truth of the matter is, both processes have access to their own
+memory space, but there is a very performant data propogation process that synchronizes the two memory
+spaces. That is a very obscure, but very important detail about mapped memory that absolutely cannot be
+neglected in the design of an IPC system that uses it. Memory mapping is uniqueue as an IPC method in that
+it is passive. No explicit calls need to be made to propogate data from one process to the other, the data
+simply passively propogates. This is both a pro, and a con, because it's extremely performant, but also 
+extremely difficult to design around. Because there are no assurances about the order in which data propogates
+from one process to the other, some other form of IPC must also be used to co-ordinate data transfer using
+memory mapping.
+
 \subsubsection{Benefits}
+
+Mapped memory is very easy to set up. The boost library provides a shared\_memory\_object and mapped\_region class
+that make it very easy to instantiate a region of shared memory between the two processes that wish to communicate.
+From further testing that I've done, speeds of up to 7 GB/s can be achieved with mapped memory, and hence memory mapping
+is by far the most performant choice for interprocess communication.
+
 \subsubsection{Costs}
 
+Absolutely no synchronization is assured. When the memory is being synchronized between processes, there are no
+assurances of the order in which the memory regions will propogate, and as such, it is extremely difficult to
+ensure data integrity between the two processes. Building a custom library around the mapped region is, for
+all intents and purposes, not optional, and extremely non-trivial.
+
+\section{Implemenation Details}
+
+\subsection{Overview}
+
+For this particular application, mapped memory is the ideal choice. Despite all of the implementation nastiness
+of making a system that relies upon mapped memory, the performance is orders of magnitude better than any other IPC
+method. In the following sections, many of the challeneges that emerge from using mapped memory will be examined, and
+solutions will be proposed to solve these challenges.
+
+\subsection{General Design}
+
+The first challenge is the complete lack of structure within a memory mapped region. Because it is literally just
+lightning-fast self-propogating memory, there are many strategies that can be used to use this in a meaningful way,
+and the ideal strategy is very problem-specific. It can be used to house objects that will automatically propogate
+from process to process, or it can be manipulated like raw-data to send streams of data between processes. 
+
+In this case,
+A large stream of data needs to be sent from process to process, and specifically, it must be a two-way communication
+platform. One of the easiest and most performant ways to create a one-way communication platform on top of shared memory,
+is to use a circular buffer. Since this is only limited by the size of the buffer, two circular buffers can be constructed
+in shared memory so that two-way communication can take place through the two buffers. Each buffer requires some metadata
+in order to keep track of the next byte to write/read. These are called the producer and consumer pointers.
+They are stored in the mapped memory as well so that the two processes can confer on which bytes need reading, and 
+which can be written.
+
+\subsection{Data Integrity}
+
+This general design is not bad, but due to the unknowable order of propagation of the memory between the processes,
+the integrity of the data cannot be garunteed. There are several ways to solve this, but most kill performance. Adding
+a checksum to the end of the metadata in the mapped region can help the reading process to know that the data it's reading
+is actually in a good state, but it massively impacts performance. Luckilly, there is one fact about this propogation that
+we know. It happens one page at a time (page sizes are system-specific, but in this case, a page is 16KB). There's no way 
+to know the order of which pages propagate when, but if a mapped region were 16KB or less in size, then it can be assured
+that data will update all at once, and hence data integrity is assured without damaging performance.
+
+\subsection{Synchronization}
+
+Yet another performance killer is the problem of synchronization. On a system with 8 cores, it may be reasonable to 
+assume that the two communicating processes may be getting CPU time at the same time. If this is the case, then they
+can tight poll for data to be available, and for data to be writable with almost no penalty, because the other
+communicating process is literally running at the same time. The issue of synchronization starts to arise when the
+two processes are not scheduled at the same time. In that case, the writing process will fill the buffer, and wait
+for data to be read so that it can write more, but it will be waiting indefinitely until either it is done its time
+slice, and the next process is scheduled on that core, or until its partner process is given time on another core.
+The worst case scenario is when 7 of the 8 cores are occupied with other, persistant processes, and the communicating
+processes are both sharing the same core. In that case, they'll each get scheduled, read/write as much as they can
+until the buffer is full, and get stuck until the OS decides that they've had enough time on the CPU. This is
+not acceptable, and absolutly kills performance. 
+
+The solution, is to use a special subset of message passing
+called events. Events can block in an efficient way. In particular, when one process is done reading as much as 
+it can, but knows that there is more data to be read, it can block on a write event, that way, the OS knows to
+unschedule that process immediately, and not to schedule it again until its partner process has triggered the write
+event. Similarly, the writing process can block on a read event when it runs out of space in the buffer, and be 
+unscheduled by the OS until the other process can get time on the CPU and trigger the read event.
+
+\subsection{Deadlocking}
+
+The solution so far seems robust on the surface, but it's not. There is a tricky assumption that is being relied
+on in this solution. The assumption is that the mapped memory will propogate before the event propogates. Unfortunately,
+that assumption does not hold. Even if the writing process writes to the mapped memory, and then triggers the event, there
+is no garuntee that the memory it wrote will propogate before the event does. The reason that this causes problems
+is that the reading process may see the event trigger, look at the number of bytes available, and see that 12 bytes are
+available to be read. If the read process is actually waiting on 20 bytes, then it will read the 12 bytes, and wait for
+a write event so that it can read the remaining 8 bytes. Meanwhile, the write process has actually already sent the full
+20 bytes, but the data did not propogate fast enough for the read process to see it. Now the read process is waiting
+on an event that will never get triggered.
+
+Ironically, the solution to this is to use message queues. Since message queues can also block efficiently, messages can
+be used as the communication channel to co-ordinate the memmap data transfer level. Every time that the writing process
+writes, it can send a message saying how many bytes it wrote. The reading process can then wait patiently for the mapped
+memory to update until it sees that the correct number of bytes is available, read that many bytes, and send a message
+back to the writing process to let it know that its bytes have been read. This can get very messy. There are actually
+4 types of messages being sent here. Each process needs to send a read or write message to the other process.
 
 \section{Conclusions}
+
+Performant interprocess communication is difficult, and a lot of time can be saved by reasoning about the system
+before writing a single piece of code. I was fortunate to be working for a patient company that understands that
+good code takes time, and even still I ran into many challenges that I was not expecting. Take heed that synchronization
+is not easy, and is made harder by the fact that it is time dependent, and therefore harder to debug. 
+
 \section{Recommendations}
 
-It seems obvious, but refactoring is esscencial to maintaining a usable and agile
-codebase. To emphasize the importance that needs to be put into refactoring, the 
-codebase for this project has been rewritten little-by-little about 3.3 times.
-That is, for every line of code in the codebase, there were 3.3 lines added and deleted.
-The general mantra that describes good refactoring is, "refactor early, refactor often".
-
-\subsection{Design Patterns}
-
-Design patterns are widely used methods of solving particular problems that can
-come up very frequently in programming problems. It's good to have a large arsenal
-of design patterns to call on when developing software. By using patterns that
-are widely known, your code will be more readable to someone who has never seen
-your code before, but has experience with design patterns. Knowlege of design
-patterns can drastically increase the speed at which you arrive at solutions.
-This is an area that was not adhered to as rigidly as the other proper coding practices,
-but it is something that would have added a lot of value. The aggressive refactoring
-resulted in a codebase that makes proper use of design patterns, but it would
-have been better to have arrived at them initially.
-
-\section{Challenges and Solutions}
-
-\subsection{Section Structure}
-
-In this section, the challenges that were faced will be introduced and
-explained. The solutions that were implimented to solve these problems will
-also be discussed. It's worth noting that when the software was being developed, 
-the approach that was taken involved itemizing all of the challenges that were 
-expected to come up so that all of them could be taken into consideration before 
-writing a single line of code. In general, it's good to catch the challenges and
-make sure that strategies for dealing with them can be incorporated nicely into
-the code base. The earlier a challenge is spotted, the faster and more effectively
-it can be solved.
-
-\subsection{Code Testing}
-
-In order to be certain that a software solution is relatively bug-free and stable,
-it's often good practice to write unit tests and system tests to make sure that
-the software operates as expected. In the case of an iOS application, this becomes
-a very difficult thing to do. Most of the bugs that occur in iOS applications are
-visual or system-behavioural. Since there is no straightforward way to write system
-tests for user interfaces, none were written in this development process. Extensive 
-manual testing was done prior to releases to make sure that no breaking bugs were
-introduced to the live codebase. The lack of unit tests or automated system tests
-meant that all of the other coding practices discussed in the previous section became
-extremely important. The manual testing also needed to be extremely thorough to make
-absolutely sure that no bugs were pushed to the general public. While somewhat frowned
-upon, this method proved to be successful, however without almost obsessive adherence
-to proper coding practices it likely would not have worked very well. As it stands, only
-one release had a bug that was considered to be breaking, and was a relatively subtle
-behavioural bug. In terms of stability, to date, there has never been a crash in a
-production build.
-
-\subsection{Object Serialization}
-
-In order to serialize an object to save it to non-volitile memory,
-serialization and deserialization methods need to be implimented for each class that
-needs to be saved. There are 18 different classes within the codebase that need to
-be serializable. This quickly became tedious. In order to solve this problem, a class
-was created that utilizes some of the more powerful language features of objective-c.
-In particular, objective-c allows classes to programatically reference the values
-and the names of their member variables. By utilizing that feature, the class (called AutomagicalCoder)  is able
-to cycle through all of its own member variables and store serialize them by encoding them
-with their own string name as the key. In this way, any class that subclasses AutomagicalCoder
-needn't worry about how to serialize itself, and instead just inherently knows how.
-
-\subsection{User Interface Tools}
-
-There are a lot of similarity between facets of a user interface. Particularly in this
-application, there was often need to have a way of displaying a multitude of different
-types of objects as cells in a table. Similarly, the behaviour invoked when the user
-taps on these object cells with his/her finger is often (although not always) the same.
-Both of these problems lent themselves well to the dispatcher design pattern. 
-
-In the dispatcher pattern,
-when it is necessary to do a similar action to many different types of data, instead of coding
-each action separately, the data is sent to a "dispatcher" that looks through the data that
-it knows how to handle, and decides accordingly which special actions to take depending on
-the data. If the data is not of a known type, depending on the dispatcher, it is either correct
-to take some default action, or simply to throw an error to let the programmer know that 
-an unexpected piece of data was passed to the dispatcher. Objective-c lends itself to the 
-dispatcher method, because of the language feature that allows a class to look through it's
-own subclasses without the subclasses explicitly making themselves known to the parent class.
-
-Without delving any deeper, a solid working knowledge of Apple's API is required to understand
-most, if not all of the following paragraphs. An abbreviated explaination of Apple's API can 
-be found in Appendix A.
-
-In the case of displaying cells, the parent class (CustomViewCell) looks through it's subclass
-and calls the canDisplayData method to query them about the data that it has been presented with.
-This is shown in the figure below.
-
-\begin{figure}[h!]
-  \caption{Illustration of the Dispatcher Design Pattern}
-  \centering
-    \includegraphics[width=0.9\textwidth]{customViewCellFlowchart}
-  \label{fig:Dispatcher Pattern}
-\end{figure}
-
-In this way, all that is necessary to fully define and display a list view is a list of the data
-that should be displayed in the list. By dispatching to CustomViewCell, the particularities of
-displaying each individual cell needn't be handled in any way by the tableViewDelegate. 
-
-Another language feature involved in the simplification of the TableView interface provided
-by Apple is that of calling methods by constructing their name through string manipulation.
-If there's somthing that needs to occur when the user clicks on a cell, the TableViewDelegate
-need only impliment a function named <CELLNAME>Handler. The method (if it exists) will be called
-by the table view delegate whenever the cell is clicked on. In this way, the delegate can 
-distinguish between cell clicks without needing to actually know the type of the cell or the
-position of the cell (which is the traditional way that Apple intends for cell distinctions to
-be made). 
-
-By making all of these simplifying abstractions, the code length of the files defining
-the behaviour of particular pages is vastly. One class in particular (OrderComboViewController)
-has 4 lines of code in its header file and 23 lines of code in its implimentation. A screenshot
-of this particular page is shown below. 
-
-\begin{figure}[h!]
-  \caption{Screenshot of the Order Combo Page}
-  \centering
-    \includegraphics[width=0.4\textwidth]{orderComboPage}
-  \label{fig:Combo Page}
-\end{figure}
-
-The UITableViewDataSource for this page is simplified in a similar way. The class responsible
-for the page contents (OrderComboRenderer) has 7 lines in its header file, and 37 in its implimentation.
-
-
-The dispatcher pattern is a very powerful way of simplifying code.
-
-\subsection{Client Version Management}
-
-One of the complicating factors in designing any application is how various versions of the code will
-interact with one another. The two possible modes of interaction in this case are communication with
-the server, and loading data cached by an older version of the client code. 
-
-\subsubsection{Server Communication}
-
-If an old version of the client code were to try to interact with the server, the server's behavior
-may have to be different than if an up to date client app were to attempt communications. The way that
-this is solved is again by dispatching. As part of every communication with the server, the iOS application
-transmits its version number. Based on the version number, the server dispatches the the response behaviour
-to the appropriate version of the server code.
-
-\subsubsection{Client Data Caching}
-
-A more difficult complication is that of loading cached data. If the ipod/iphone user has an old version of the
-app, saves some data, updates their app to the current version, and then attempts to load the cached data,
-bad things can happen. Depending on the version of the app that was used to cache the data, the procedure
-to update the data to be consistant with the current model is different. To solve this problem, a combination
-of the dispatcher pattern and the fallthrough pattern was used. The first step in determining what to do
-with the data being loaded is to check the version string. Luckillty, this problem was anticipated, and 
-the cached data always contains a version string. Because this all needs to be done by AutomagicalCoder,
-no actual knowledge of what these variables are is known explicitly at load time. To solve this, Automagical
-Coder checks the version string, and if the version string is not the current version string, it checks for
-the existance of a recovery routine for each of the variables that it determines that it needs to load.
-if a recovery routine is implimented in the child class, AutomagicalCoder dispatches to the recovery 
-routine by calling <VARIABLENAME>Recovery. The recovery routine uses the fallthrough pattern.
-
-The fallthrough pattern uses a switch case structure where the case clauses do not contain a break statement.
-In this way, the variable information will be updated in a cascade through all of the versions starting
-at the version that was found on the disc all the way up to the present model. In this way, the only
-thing that needs to be updated from version to version is the logic for moving the data from the version
-immediately prior to the current version. Everything else just cascades through.
-
-\section{Conclusion}
-
-In conclusion, by using the habits and patterns discussed in this report, the development project was a 
-great success. From a technological view point, this product turned out great. It's stable, it looks good,
-it is optimized enough that it feels smooth to interact with, and its code is very readable. 
-
-The app can currently be downloaded from the app store, and is called "Pita Factory". As
-not everyone has an iOS device, below are some screenshots of the finished product.
-
-\begin{figure}[h!]
-  \caption{Screenshot of the Order/Menu Page}
-  \centering
-    \includegraphics[width=0.4\textwidth]{orderMenuPage}
-  \label{fig:Menu Page}
-\end{figure}
-
-\begin{figure}[h!]
-  \caption{Screenshot of the Credit Card Page}
-  \centering
-    \includegraphics[width=0.4\textwidth]{creditCardPage}
-  \label{fig:Credit Card Page}
-\end{figure}
-
-\begin{figure}[h!]
-  \caption{Screenshot of the Location Page}
-  \centering
-    \includegraphics[width=0.4\textwidth]{locationPage}
-  \label{fig:Location Pageg}
-\end{figure}
-
-\appendix
-
-\section{Apple API Abbreviated}
-
-Appendix A is an abbreviated description of Apples's iOS API. It
-will explain the general concepts behind displaying things on
-an iOS device as well as the specific elements of the API that
-are pertainant to this report.
-
-As a general overview, there are views, models, and controllers.
-The views represent the actual images that the user sees. The models
-represent the data that is meant to be conveyed to the user. The
-controllers encapsulate the ways that the user can interact with
-the data. This is known as the model-view-controller design pattern
-and is the design pattern that apple intends for programmers to use
-when interacting with their API.
-
-\subsection{UIViews}
-
-UIView is the most basic class that is meant to be displayed to
-the screen. A UIView has an area of the screen that it can manipulate
-via its drawrect method. A UIView can also have an arbitrary number of 
-subviews which draw themselves onto the parent UIView. There are 
-many built-in subclasses of UIView that can accomodate most 
-applications that a person might want to build.
-
-Some notable subclasses of UIView are: UILabel, UIButton, UITableView
-UIViewCell, and UIImageView.
-
-\subsubsection{UITableView}
-
-A UITableView is a view that can display any number of scrollable 
-UIViewCells. The UITableView must be associated with a UITableViewDelegate
-in order to define any interactive behaviour and must be associated
-with a UITableViewDataSource in order to have any content. they will be
-discussed more in the UIViewControllers and UIDataSources sections.
-
-\subsubsection{UIViewCell}
-
-A UIViewCell is a UIView that can be produced by a UITableViewDataSource.
-The vanila UIViewCell can be used by itself as elements to populate a
-UITableView and can be configured in several different default configurations
-that can accomodate most data that a person might want to display reasonably
-well. In cases where the vanila UIViewCell will not suffice, UIViewCell can
-be subclassed to accomodate arbitrarily complex and unusual cells.
-
-\subsection{UIViewControllers}
-
-UIViewController is a class that is not intended to be used by itself, 
-but rather to be subclassed to accomodate specific behaviour that
-a programmer might intend for a view to have. View controllers are
-often made to be the delegates of the view that they control so that
-a view can request behavior from its view controller without actually
-needing to know anything specific about the view controller. 
-
-\subsubsection{UITableViewDelegate}
-
-The most notable type of delegation that this report refers to is
-that of the UITableViewDelegate. The UITableViewDelegate is responsible
-for telling the UITableView what needs to happen upon the selection of
-a cell at a particular position on the table. It's also responsible for 
-letting the UITableView know the height that each cell is intended to
-occupy.
-
-\subsection{UIDataSources}
-
-In general, the "model" part of the model-view-controller pattern is 
-satisfied by a class that impliments a datasource interface defined for
-the UIView that it is acting as the model for. This is not always
-the case, and in cases where it isn't, the model will simply be a 
-subclass of NSObject, which is a base class that everything derrives from
-within the the Apple API.
-
-\subsubsection{UITableViewDataSource}
-
-A class that impliments the UITableViewDataSource interface will provide
-a UITableView with the cells that the UITableView will populate itself with
-as well as letting it know the number of cells that exist in the table,
-the titles of the sections that make up the table.
-
+Because of the relative ease of message passing over named pipes, for synchronization and simple, low-bandwidth purposes
+message passing is ideal. Named pipes are reasonably performant, and orders of magnitude easier to implement than
+mapped memory, so for applications that need to transfer data streams, but are not bottlenecked by it, named pipes are
+ideal. For applications that absolutley demand performance, a mapped memory library is the ideal solution, although certainly
+not the easy one.
 
 \end{document}
