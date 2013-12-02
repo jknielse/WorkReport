@@ -34,7 +34,7 @@
 
 %% First we, should create a title page.  This is done below:
 % Fill in the title of your report.
-\title{Design of an Interprocess Communcation Library}
+\title{Design of an Interprocess Communication Library}
 
 % Fill in your employer's name.
 \employer{Virtium Incorporated}
@@ -130,6 +130,30 @@ Due to the volume and complexity of the tests, it was essential that this
 library provide as high throughput as possible. This is the challenge that will
 be examined throughout this report.
 
+Since throughput was the most important metric, the first unit tests that
+were added to the library were actually benchmark tests. The tests allocated
+two threads that used the library to send variously sized packets unidirectionally
+from one thread to the other until 4GB had been received by the listening thread.
+Using that time and the fact that 4GB had been communicated, the bandwidth could be
+calculated. The size of mapped memory to use, and the size of the communicated chunks
+were the only two variables that could be changed, so a series of benchmark tests using
+64KB, 1MB, 4MB, and 32MB of mapped memory, and 512B, 4KB, 16KB, and 64KB packet sizes
+were run every time the library changed.
+
+By the end of the term, speeds of up to 7GB/s could be achieved using
+mapped memory (with 1MB of mapped memory, and 64KB packet size). It turned
+out that after around 1MB of mapped memory was allocated, there was almost no
+benefit from increasing the memory size. Performance increased as the packet size
+increased, except once the packet size reached around 1/4 of the allocated memory size.
+
+Throughout the process, unit tests were added to test as much of the library
+as possible. These included tests that allocated non-even memory sizes for the mapped
+memory and for the packet sizes, tests that verify the received information matched
+the passed information for threads communicating simultaneously and bi-directionally through the library,
+tests that allocated 10 communicating thread-pairs that also verified data integrity,
+tests that ensured that timeout exceptions were thrown in the event that one of the
+threads dies. 
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -145,13 +169,22 @@ be examined throughout this report.
 
 The problem of interprocess communication is not uncommon, and there
 are several ways to implement it. The different implementations have
-trade-offs, but they're all useful under the correct circumstances.
+trade-offs, but they're all useful under the correct circumstances. For low-bandwidth
+applications, message passing is the easiest to implement, and can be used to pass
+whole objects from process-to-process directly out-of-the-box. For mid-bandwidth applications,
+named pipes can be used. Any data passed into a named pipe will make it to the listening process
+in the same order that it was written, which greatly simplifies the use of named-pipes as compared
+to mapped memory. When high bandwidth is absolutely necessary, then mapped memory offers extremely
+high bandwidth, but is very difficult to use properly.
 
 In order to understand which is the most ideal, the use-case and programming
 environment needs to be examined first. In this case, both communicating
 processes are written in C++, and both processes are running on the same
 machine. Further, the host machine is running post-2007 Windows, although
-we don't have any assurances about which release of Windows.
+we don't have any assurances about which release of Windows. From boost::mapped\_region::get\_page\_size();,
+it was determined that the page size is 16KB.
+
+\subsection{Constraints and Criteria}
 
 The requirements for this library are as follows: The two processes need to be able to send serialized data in both directions,
 and the data streams can be anywhere from several bytes, to several gigabytes
@@ -172,7 +205,7 @@ will be examined and evaluated to determine their viability for this application
 
 Message passing is one of the most common and simple ways of implementing
 interprocess communication. Message passing is a service provided by the operating
-system that allows you to send and recieve messages between processes. In most
+system that allows you to send and receive messages between processes. In most
 implementations (such as boost::interprocess::message\_queue) all that's required
 to connect two processes is for both of them to create a message\_queue object with
 the same key. After the object is created, messages can be inserted or extracted from
@@ -182,15 +215,15 @@ the message queue, thereby providing a way for the two processes to communicate.
 
 Message passing is one of the easiest ways of implementing interprocess communication.
 It requires no explicit process synchronization (that's all handled by the library). It's
-flexable because the "messages" can be text, or full-fledged objects. Message passing
+flexible because the "messages" can be text, or full-fledged objects. Message passing
 can be a form of communication between more than just two processes (many speakers, many listeners). Message passing is
 cross-platform with the right libraries (like boost).
 
 \subsubsection{Costs}
 
-Message passing tends to have very low bandwith. Its intended purpose is not to transfer
+Message passing tends to have very low bandwidth. Its intended purpose is not to transfer
 a lot of data, it's to signal other processes to start/stop tasks, request the status
-of processes, notify processes of events occuring, and the like.
+of processes, notify processes of events occurring, and the like.
 
 \subsection{Named Pipes}
 
@@ -202,15 +235,16 @@ need to "open" a pipe, and agree on the name of the pipe. For example, using the
 one process could create a pipe using the CreateNamedPipe function (which returns a handle to the pipe),
 amd the connecting process could connect to the pipe by using the CreateFile function (which also returns a handle to the
 pipe). Depending on the initialization parameters given to CreateNamedPipe, the pipe may
-be one-way, or it may be bi-directional. The two processes can then send or recieve data byte-by-byte
+be one-way, or it may be bi-directional. The two processes can then send or receive data byte-by-byte
 with their pipe handle.
 
 \subsubsection{Benefits}
 
 Named pipes are reasonably fast. From the tests that I performed during the term, you can 
-expect transfer speeds in the range of 200 MB/s using named pipes. Named pipes still abstract
-synchronization issues from the user, and lend themselves towards raw data transfer between
-processes. Named pipes are avalable in any operating system.
+expect transfer speeds in the range of 200 MB/s using named pipes (Unfortunately I no longer have
+access to the codebase that I worked on, and as such I cannot formally include this test in the report).
+Named pipes still abstract synchronization issues from the user, and lend themselves towards raw data 
+transfer between processes. Named pipes are available in any operating system.
 
 \subsubsection{Costs}
 
@@ -222,14 +256,14 @@ than message passing. Some glue-code is required to send objects down a named pi
 
 \subsubsection{Overview}
 
-Mapped memory is a method of interprocess communication that *nearly allows both processes to access
-the same memory simultaniously. The truth of the matter is, both processes have access to their own
-memory space, but there is a very performant data propogation process that synchronizes the two memory
+Mapped memory is a method of interprocess communication that nearly allows both processes to access
+the same memory simultaneously. The truth of the matter is, both processes have access to their own
+memory space, but there is a very performant data propagation process that synchronizes the two memory
 spaces. That is a very obscure, but very important detail about mapped memory that absolutely cannot be
-neglected in the design of an IPC system that uses it. Memory mapping is uniqueue as an IPC method in that
-it is passive. No explicit calls need to be made to propogate data from one process to the other, the data
-simply passively propogates. This is both a pro, and a con, because it's extremely performant, but also 
-extremely difficult to design around. Because there are no assurances about the order in which data propogates
+neglected in the design of an IPC system that uses it. Memory mapping is unique as an IPC method in that
+it is passive. No explicit calls need to be made to propagate data from one process to the other, the data
+simply passively propagates. This is both a pro, and a con, because it's extremely performant, but also 
+extremely difficult to design around. Because there are no assurances about the order in which data propagates
 from one process to the other, some other form of IPC must also be used to co-ordinate data transfer using
 memory mapping.
 
@@ -243,24 +277,24 @@ is by far the most performant choice for interprocess communication.
 \subsubsection{Costs}
 
 Absolutely no synchronization is assured. When the memory is being synchronized between processes, there are no
-assurances of the order in which the memory regions will propogate, and as such, it is extremely difficult to
+assurances of the order in which the memory regions will propagate, and as such, it is extremely difficult to
 ensure data integrity between the two processes. Building a custom library around the mapped region is, for
 all intents and purposes, not optional, and extremely non-trivial.
 
-\section{Implemenation Details}
+\section{Implementation Details}
 
 \subsection{Overview}
 
 For this particular application, mapped memory is the ideal choice. Despite all of the implementation nastiness
 of making a system that relies upon mapped memory, the performance is orders of magnitude better than any other IPC
-method. In the following sections, many of the challeneges that emerge from using mapped memory will be examined, and
+method. In the following sections, many of the challenges that emerge from using mapped memory will be examined, and
 solutions will be proposed to solve these challenges.
 
 \subsection{General Design}
 
 The first challenge is the complete lack of structure within a memory mapped region. Because it is literally just
-lightning-fast self-propogating memory, there are many strategies that can be used to use this in a meaningful way,
-and the ideal strategy is very problem-specific. It can be used to house objects that will automatically propogate
+lightning-fast self-propagating memory, there are many strategies that can be used to use this in a meaningful way,
+and the ideal strategy is very problem-specific. It can be used to house objects that will automatically propagate
 from process to process, or it can be manipulated like raw-data to send streams of data between processes. 
 
 In this case,
@@ -275,9 +309,9 @@ which can be written.
 \subsection{Data Integrity}
 
 This general design is not bad, but due to the unknowable order of propagation of the memory between the processes,
-the integrity of the data cannot be garunteed. There are several ways to solve this, but most kill performance. Adding
+the integrity of the data cannot be guaranteed. There are several ways to solve this, but most kill performance. Adding
 a checksum to the end of the metadata in the mapped region can help the reading process to know that the data it's reading
-is actually in a good state, but it massively impacts performance. Luckilly, there is one fact about this propogation that
+is actually in a good state, but it massively impacts performance. Luckily, there is one fact about this propagation that
 we know. It happens one page at a time (page sizes are system-specific, but in this case, a page is 16KB). There's no way 
 to know the order of which pages propagate when, but if a mapped region were 16KB or less in size, then it can be assured
 that data will update all at once, and hence data integrity is assured without damaging performance.
@@ -291,10 +325,10 @@ communicating process is literally running at the same time. The issue of synchr
 two processes are not scheduled at the same time. In that case, the writing process will fill the buffer, and wait
 for data to be read so that it can write more, but it will be waiting indefinitely until either it is done its time
 slice, and the next process is scheduled on that core, or until its partner process is given time on another core.
-The worst case scenario is when 7 of the 8 cores are occupied with other, persistant processes, and the communicating
+The worst case scenario is when 7 of the 8 cores are occupied with other, persistent processes, and the communicating
 processes are both sharing the same core. In that case, they'll each get scheduled, read/write as much as they can
 until the buffer is full, and get stuck until the OS decides that they've had enough time on the CPU. This is
-not acceptable, and absolutly kills performance. 
+not acceptable, and absolutely kills performance. 
 
 The solution, is to use a special subset of message passing
 called events. Events can block in an efficient way. In particular, when one process is done reading as much as 
@@ -306,13 +340,13 @@ unscheduled by the OS until the other process can get time on the CPU and trigge
 \subsection{Deadlocking}
 
 The solution so far seems robust on the surface, but it's not. There is a tricky assumption that is being relied
-on in this solution. The assumption is that the mapped memory will propogate before the event propogates. Unfortunately,
+on in this solution. The assumption is that the mapped memory will propagate before the event propagates. Unfortunately,
 that assumption does not hold. Even if the writing process writes to the mapped memory, and then triggers the event, there
-is no garuntee that the memory it wrote will propogate before the event does. The reason that this causes problems
+is no guarantee that the memory it wrote will propagate before the event does. The reason that this causes problems
 is that the reading process may see the event trigger, look at the number of bytes available, and see that 12 bytes are
 available to be read. If the read process is actually waiting on 20 bytes, then it will read the 12 bytes, and wait for
 a write event so that it can read the remaining 8 bytes. Meanwhile, the write process has actually already sent the full
-20 bytes, but the data did not propogate fast enough for the read process to see it. Now the read process is waiting
+20 bytes, but the data did not propagate fast enough for the read process to see it. Now the read process is waiting
 on an event that will never get triggered.
 
 Ironically, the solution to this is to use message queues. Since message queues can also block efficiently, messages can
@@ -329,12 +363,16 @@ before writing a single piece of code. I was fortunate to be working for a patie
 good code takes time, and even still I ran into many challenges that I was not expecting. Take heed that synchronization
 is not easy, and is made harder by the fact that it is time dependent, and therefore harder to debug. 
 
+In applications that don't require high throughput, message passing is ideal. In applications that require higher bandwidth, but
+don't require extremely high bandwidth, named pipes should be used. In applications that absolutely require high bandwidth,
+mapped memory should be used.
+
 \section{Recommendations}
 
 Because of the relative ease of message passing over named pipes, for synchronization and simple, low-bandwidth purposes
 message passing is ideal. Named pipes are reasonably performant, and orders of magnitude easier to implement than
 mapped memory, so for applications that need to transfer data streams, but are not bottlenecked by it, named pipes are
-ideal. For applications that absolutley demand performance, a mapped memory library is the ideal solution, although certainly
+ideal. For applications that absolutely demand performance, a mapped memory library is the ideal solution, although certainly
 not the easy one.
 
 \end{document}
