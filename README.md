@@ -5,7 +5,7 @@ Thanks for downloading uw-wkrpt.  This is a LaTeX document class that I
 developed to make you life easier, when writing work term reports for
 the University of Waterloo.
 
-	If you do not know LaTeX, please learn!  It is not too
+If you do not know LaTeX, please learn!  It is not too
 difficult to use, and is really quite helpful.  You can read the
 workreport-sample.pdf file included in this tarball, as well as
 the following two books:
@@ -16,11 +16,11 @@ A simplified introduction to LaTeX
 A not so short introduction to LaTeX2e: or LaTeX2e in 113 minutes
   http://people.ee.ethz.ch/~oetiker/lshort/
 
-	You can also find more information on-line.  There is a FAQ
+You can also find more information on-line.  There is a FAQ
 at: http://faq.tug.org and an page listing documentation for beginners
 at: http://www.tug.org/begin.html
 
-	Please send me any comments, bug reports, bug fixes and 
+Please send me any comments, bug reports, bug fixes and 
 suggestions that you may have.  You can get the newest copy of this
 document class from my school-hosted website at:
   http://www.eng.uwaterloo.ca/~sfllaw/programs/uw-wkrpt/
@@ -48,7 +48,7 @@ There are several files in this tarball.
 * uw-wkrpt.dtx is the docstrip document that contains the entire
   uw-wkrpt package.
 
-* uw-wkrpt-*.tex are example documents written using uw-wkrpt.cls.  
+* uw-wkrpt-\*.tex are example documents written using uw-wkrpt.cls.  
   It illustrates the way to write a document, and tries to adhere as 
   closely to the guidelines as possible.
 
