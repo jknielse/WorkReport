@@ -81,3 +81,39 @@ line, just add ``\usepackage{foo}'', where ``foo'' is the package name.
     For using the Times font in your text and math.
 
 -- Simon Law <sfllaw@uwaterloo.ca>  Wed, 30 Apr 2003 19:34:41 -0400
+
+
+# Instructions for MAC users
+
+Big thanks to Val (vtsatskin) for these instructions for all you mac users out there that
+want to use this template!
+
+## Install MacTex
+
+LaTeX is distributed on Mac OS X via MacTex. As of this wriiting the installer is 2.3 GB. It's pretty large so it'll take some time to download.
+
+You can find the latest version on [their website](https://www.tug.org/mactex/).
+
+## (Optional) Add /usr/texbin to your PATH
+
+You can skip this section if you don't use a different system shell (i.e. you use bash).
+
+If you're using a shell other than bash, you'll want to add /usr/texbin to your PATH.
+
+### zsh configuration
+
+Open `~/.zshrc` in your favorite editor and find a line similiar to:
+
+    export PATH="$HOME/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+
+You'll want to add `/usr/texbin` to the path like so (it's at the end):
+
+    export PATH="$HOME/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/texbin"
+
+## Generating PDFs
+
+1. In Terminal.app, `cd` into your work report directory
+2. Run `make`. You'll see a bunch of messages scroll across your terminal.
+3. Run `open Default_Report.pdf` to open the generated PDF.
+
+Every time you make a change to the LaTeX, you'll want to run `make` again to see your changes. Steps 2 and 3 can be combined into one command such as `make && open Default_Report.pdf`
